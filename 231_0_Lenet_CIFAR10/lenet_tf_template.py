@@ -518,3 +518,12 @@ with tf.Session() as sess:
     plt.show()
 
 log('done.')
+
+# import urllib.request
+# response = urllib.request.urlopen("https://raw.githubusercontent.com/yaroslavvb/memory_util/master/memory_util.py")
+# open("memory_util.py", "wb").write(response.read())
+# import memory_util
+
+# import tensorflow as tf
+# device_name = tf.test.gpu_device_name()
+# print(device_name)
