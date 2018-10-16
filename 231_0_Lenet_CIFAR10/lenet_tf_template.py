@@ -6,7 +6,7 @@ import math
 import matplotlib.pyplot as plt
 from PIL import Image
 
-USE_GPU = False
+USE_GPU = True
 
 ###################################################################################################
 #                                            PREAMBLE                                             #
@@ -169,25 +169,20 @@ def convnet_forward(x, params):
     x3_3_relu = tf.nn.relu(x3_2_conv)
     x3_4_pad = tf.pad(x3_3_relu, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='CONSTANT', constant_values=0)
     x3_5_pool = tf.nn.avg_pool(x3_4_pad, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='VALID')
-    
     ############################################################################
     # TODO: (1.a), (2.a) Implement the remaining forward pass.                 #
     ############################################################################
     # block 4
-    x4_1_pad = tf.pad(x3_5_pool, [[0, 0], [2, 2], [2, 2], [0, 0]], mode='CONSTANT', constant_values=0)
     x4_2_conv = tf.nn.conv2d(x3_5_pool, conv_w4, [1, 1, 1, 1], padding='VALID') + conv_b4
-    x4_3_relu = tf.nn.relu(x4_2_conv)  
+    x4_3_relu = tf.nn.relu(x4_2_conv)
 
-    x5_1_pad = tf.pad(x4_3_relu, [[0, 0], [2, 2], [2, 2], [0, 0]], mode='CONSTANT', constant_values=0)
     x5_2_conv = tf.nn.conv2d(x4_3_relu, conv_w5, [1, 1, 1, 1], padding='VALID') + conv_b5
     x5_1_conv = tf.nn.softmax(x5_2_conv)
-    print(x5_1_conv)
     ############################################################################
     #                              END OF YOUR CODE                            #
     ############################################################################
 
     logits = flatten(x5_1_conv)
-    print(logits)
 
     return logits
 
@@ -358,7 +353,6 @@ def get_accuracy(sess, dset, x, logits, is_training=None):
     for x_batch, y_batch in dset:
         feed_dict = {x: x_batch, is_training: 0}
         scores_np = sess.run(logits, feed_dict=feed_dict)
-
         y_pred = scores_np.argmax(axis=1)
         num_samples += x_batch.shape[0]
         num_correct += (y_pred == y_batch).sum()
@@ -371,7 +365,7 @@ def get_accuracy(sess, dset, x, logits, is_training=None):
 # TODO: (1.b) Adjust learning-rate and number of epochs.                   #
 ############################################################################
 learning_rate = 5e-2
-epochs = 10
+epochs = 50
 ############################################################################
 #                             END OF YOUR CODE                             #
 ############################################################################
@@ -382,9 +376,25 @@ params, params_val, train_losses, test_accuracies = train(convnet_forward, convn
 # TODO: (1.c) Plot.                                                        #
 ############################################################################
 
-
+plt.figure()
+plt.title('Training losses')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.plot(train_losses)
 plt.savefig('1_loss.png')
+plt.show()
+plt.grid(None)
+plt.close()
+
+plt.figure()
+plt.title('Tesing accuracies')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.plot(test_accuracies)
 plt.savefig('2_accuracy.png')
+plt.show()
+plt.grid(None)
+plt.close()
 
 
 ############################################################################
@@ -456,7 +466,11 @@ with tf.Session() as sess:
     ############################################################################
     img = Image.fromarray(grid_val[0], 'RGB')
     img.save('3_kernels.jpeg')
-
+    plt.imshow(img)
+    plt.grid(None)
+    plt.axis('off')
+    plt.show()
+    
 
 ###################################################################################################
 #                                              PART 3                                             #
@@ -482,10 +496,7 @@ def conv1_activations(x, conv_w1, conv_b1):
     ############################################################################
     # block 1
     x1_1_pad = tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 0]], mode='CONSTANT', constant_values=0)
-    x1_2_conv = tf.nn.conv2d(x1_1_pad, conv_w1, [1, 1, 1, 1], padding='VALID') + conv_b1
-    x1_3_pad = tf.pad(x1_2_conv, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='CONSTANT', constant_values=0)
-    x1_4_pool = tf.nn.max_pool(x1_3_pad, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='VALID')
-    output = tf.nn.relu(x1_4_pool)
+    output = tf.nn.conv2d(x1_1_pad, conv_w1, [1, 1, 1, 1], padding='VALID') + conv_b1
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -493,7 +504,7 @@ def conv1_activations(x, conv_w1, conv_b1):
 
 
 image = get_X_train_sample()
-plt.imshow(np.squeeze(image).astype(int), interpolation='nearest')
+plt.imshow(np.squeeze(image).astype(np.uint8), interpolation='nearest')
 plt.figure(1, figsize=(10, 10))
 plt.axis('off')
 plt.savefig('4_data.png', bbox_inches='tight')
