@@ -1,0 +1,6 @@
+model_checkpoint_path: "ZSL.model-5700"
+all_model_checkpoint_paths: "ZSL.model-5244"
+all_model_checkpoint_paths: "ZSL.model-5358"
+all_model_checkpoint_paths: "ZSL.model-5472"
+all_model_checkpoint_paths: "ZSL.model-5586"
+all_model_checkpoint_paths: "ZSL.model-5700"

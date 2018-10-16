@@ -1,0 +1,6 @@
+model_checkpoint_path: "ZSL.model-18408"
+all_model_checkpoint_paths: "ZSL.model-17936"
+all_model_checkpoint_paths: "ZSL.model-18054"
+all_model_checkpoint_paths: "ZSL.model-18172"
+all_model_checkpoint_paths: "ZSL.model-18290"
+all_model_checkpoint_paths: "ZSL.model-18408"

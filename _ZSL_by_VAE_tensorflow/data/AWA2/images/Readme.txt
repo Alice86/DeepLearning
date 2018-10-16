@@ -1,0 +1,1 @@
+Download original files from: https://cvml.ist.ac.at/AwA2/AwA2-data.zip

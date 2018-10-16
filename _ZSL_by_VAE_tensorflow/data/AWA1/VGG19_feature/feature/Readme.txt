@@ -1,0 +1,1 @@
+Download original files from: http://www.ist.ac.at/~chl/AwA/AwA-features-vgg19.tar.bz2
