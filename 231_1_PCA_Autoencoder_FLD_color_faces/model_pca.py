@@ -59,7 +59,7 @@ class face_PCA(object):
         if plot:
             eigenvectors = pca.components_
             eigen_lms = np.reshape(eigenvectors, [num_plot, self.num_landmark, 2]) + train_lms.mean(axis=0)
-            fig = plot_lms(eigen_lms, 2, num_plot/2, 'Eigen Landmarks')
+            fig = plot_lms(eigen_lms, 2, num_plot//2, 'Eigen Landmarks')
         return pca, fig 
         
     def reconstruction_img(self, samples, train_img, pca=None):
@@ -95,7 +95,7 @@ class face_PCA(object):
             pca_lms, _ = self.pca_landmark(train_lms, None, False)
         train_warp = np.array(list(map(warp, train_img, train_lms, [train_lms.mean(axis=0)]*train_lms.shape[0])))
         warp_pca_img, _ = self.pca_face(train_warp, None, False)
-        return warp_pca_img, pca_lms
+        return warp_pca_img
       
     def reconstruction(self, train_img, test_img, train_lms, test_lms, pca_lms, warp_pca_img):
         if not pca_lms:
@@ -130,9 +130,9 @@ class face_PCA(object):
         
         train_data, img_hs = self.image_to_data(train_img)
         mean_img = train_data.mean(axis=0)
-        weight_img = np.concatenate([np.random.normal(0,np.sqrt(value),[sample_size,1]) for value in img_values], axis=1)
+        weight_img = np.concatenate([np.random.normal(0,np.sqrt(value)/2,[sample_size,1]) for value in img_values], axis=1)
         sample_data = np.dot(weight_img, img_vectors) + mean_img
-        # sample_img = self.data_to_image(sample_data, np.array([img_hs[4]]*sample_size))
+        # sample_img = self.data_to_image(sample_data, np.array([img_hs[3]]*sample_size))
         sample_img = np.reshape(sample_data, [sample_size, self.image_size, self.image_size, 1])
 
         sample_warp = np.array(list(map(warp, sample_img, mean_lms, sample_lms)))
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     plt.xlabel('Num. of Components')
     plt.ylabel('Reconstruction Error')
     plt.plot(comps, img_errs)
-    plt.savefig('fig/Fig1-1-3')
+    plt.savefig('fig/Fig1_1_3')
     plt.close()
     print('Eigen face done')
     
@@ -205,6 +205,12 @@ if __name__ == '__main__':
     fig1_3_1a.savefig('fig/Fig1_3_1a')
     fig1_3_1b.savefig('fig/Fig1_3_1b')
 
+    samples = test_img[:20]
+    recon_img, _ = face_pca.reconstruction_img(samples, train_img, pca_img)
+    plot_image = np.concatenate((recon_img, samples), axis = 0)
+    fig2_1b = plot_img(plot_image,4,5,'Reconstruction by PCA')
+    fig2_1b.savefig('fig/Fig2_1b')
+
     #3-2 plot errs on latent dim
     errs, lmss, imgs = [], [], []
     for n_comp in comps:
@@ -212,6 +218,7 @@ if __name__ == '__main__':
         errs += [err]
         lmss += [err_lms]
         imgs += [err_img]
+    print(lmss)
 
     plt.title('Reconstruction Errors over Num. of Components')
     plt.xlabel('Num. of Components')
@@ -220,24 +227,116 @@ if __name__ == '__main__':
     plt.savefig('fig/Fig1_3_2a')
     plt.close()
 
-    plt.title('Geometry loss over Num. of Components')
-    plt.xlabel('Num. of Components')
-    plt.ylabel('Error')
-    plt.plot(comps, lmss)
-    plt.savefig('fig/Fig1_3_2b')
-    plt.close()
+    # plt.title('Geometry loss over Num. of Components')
+    # plt.xlabel('Num. of Components')
+    # plt.ylabel('Error')
+    # plt.plot(comps, lmss)
+    # plt.savefig('fig/Fig1_3_2b')
+    # plt.close()
 
-    plt.title('Appearance loss over Num. of Components')
-    plt.xlabel('Num. of Components')
-    plt.ylabel('Error')
-    plt.plot(comps, imgs)
-    plt.savefig('fig/Fig1_3_2c')
-    plt.close()
-    print('Eigen warp face done')
+    # plt.title('Appearance loss over Num. of Components')
+    # plt.xlabel('Num. of Components')
+    # plt.ylabel('Error')
+    # plt.plot(comps, imgs)
+    # plt.savefig('fig/Fig1_3_2c')
+    # plt.close()
+    # print('Eigen warp face done')
 
-    #3-2 sample image
+    # 3-2 sample image
     _, fig1_3_2 = face_pca.sample(train_img, train_lms, 50, pca_lms, None, plot = True)
     fig1_3_2.savefig('fig/Fig_1_3_2')
     print('Sample face done')
 
-    #FLD:
+    # FLD 1. discrimination
+    face_pca = face_PCA(z_dim=50, l_dim=10)
+    pca_img, _ = face_pca.pca_face(train_img, None, False)
+    female_data = face_pca.image_to_data(images[train_female])[0]
+    male_data = face_pca.image_to_data(images[train_male])[0]
+    latent_female = pca_img.transform(female_data)
+    latent_male = pca_img.transform(male_data)
+    mean_female = latent_female.mean(axis=0)
+    mean_male = latent_male.mean(axis=0)
+    scatter_female = np.dot((latent_female-mean_female).T, (latent_female-mean_female))
+    scatter_male = np.dot((latent_male-mean_male).T, (latent_male-mean_male))
+    w_img = np.dot(np.linalg.inv(scatter_female+scatter_male), (mean_female-mean_male).reshape((50, 1)))
+    test_latent_female = pca_img.transform(face_pca.image_to_data(images[test_female])[0])
+    test_latent_male = pca_img.transform(face_pca.image_to_data(images[test_male])[0])
+    pred_female = np.dot(test_latent_female, w_img)
+    pred_male = np.dot(test_latent_male, w_img)
+    test_acc = ((pred_female>0).sum()+(pred_male<0).sum())/200
+    print('accuracy: % .3f' %test_acc)
+
+    fisher_vector = pca_img.inverse_transform(w_img.T)
+    fisher_face = fisher_vector
+    plt.axis('off')
+    plt.xticks([])
+    plt.yticks([])
+    fmin=fisher_face.min()
+    fmax=fisher_face.max()
+    image=((fisher_face-fmin)/(fmax-fmin+1e-8)).reshape(128,128)
+    plt.imshow(image, cmap ='gray')
+    plt.title('Fisher Face in 50-dim space with accuracy of % .3f' % test_acc)
+    plt.savefig('fig/Fig3_1')
+
+    # FLD 2. two features
+    warp_pca,_ = face_pca.pca_face(warpimage[train_idx], None, False)
+    mean_female_lms = latent_female_lms.mean(axis=0)
+    mean_male_lms = latent_male_lms.mean(axis=0)
+    scatter_female_lms = np.dot((latent_female_lms-mean_female_lms).T, (latent_female_lms-mean_female_lms))
+    scatter_male_lms = np.dot((latent_male_lms-mean_male_lms).T, (latent_male_lms-mean_male_lms))
+    w_lms = np.dot(np.linalg.inv(scatter_female_lms+scatter_male_lms), (mean_female_lms-mean_male_lms).reshape((10, 1)))
+    test_lms_female = pca_lms.transform(landmarks[test_female].reshape((-1, 136)))
+    test_lms_male = pca_lms.transform(landmarks[test_male].reshape((-1, 136)))
+    pred_female_lms = np.dot(test_lms_female, w_lms)
+    pred_male_lms = np.dot(test_lms_male, w_lms)
+    test_acc = ((pred_female_lms>0).sum()+(pred_male_lms<0).sum())/200
+    print('landmark accuracy: % .3f' %test_acc)
+    
+    fisher_vector = pca_lms.inverse_transform(w_lms.T)
+    fisher_lms = fisher_vector.reshape(68,2)
+    plt.axis('off')
+    plt.xticks([])
+    plt.yticks([])
+    plt.plot(fisher_lms[:,0], -fisher_lms[:,1], '.')
+    plt.title('Fisher landmark in 10-dim space with accuracy of % .3f' % test_acc)
+    plt.savefig('fig/Fig3_2a')
+
+    warp_pca,_ = face_pca.pca_face(warpimage[train_idx], None, False)
+    img_vectors = warp_pca.components_
+    img_values = warp_pca.explained_variance_
+    female_data = face_pca.image_to_data(warpimage[train_female])[0]
+    male_data = face_pca.image_to_data(warpimage[train_male])[0]
+    latent_female = warp_pca.transform(female_data)
+    latent_male = warp_pca.transform(male_data)
+    mean_female = latent_female.mean(axis=0)
+    mean_male = latent_male.mean(axis=0)
+    scatter_female = np.dot((latent_female-mean_female).T, (latent_female-mean_female))
+    scatter_male = np.dot((latent_male-mean_male).T, (latent_male-mean_male))
+    w_img = np.dot(np.linalg.inv(scatter_female+scatter_male), (mean_female-mean_male).reshape((50, 1)))
+    test_latent_female = warp_pca.transform(face_pca.image_to_data(warpimage[test_female])[0])
+    test_latent_male = warp_pca.transform(face_pca.image_to_data(warpimage[test_male])[0])
+    pred_female_img = np.dot(test_latent_female, w_img)
+    pred_male_img = np.dot(test_latent_male, w_img)
+    test_acc = ((pred_female_img>0).sum()+(pred_male_img<0).sum())/200
+    print('aligned image accuracy: % .3f' %test_acc)
+
+    fisher_vector = pca_img.inverse_transform(w_img.T)
+    fisher_face = fisher_vector
+    plt.axis('off')
+    plt.xticks([])
+    plt.yticks([])
+    fmin=fisher_face.min()
+    fmax=fisher_face.max()
+    image=((fisher_face-fmin)/(fmax-fmin+1e-8)).reshape(128,128)
+    plt.imshow(image.reshape(128,128), cmap ='gray')
+    plt.title('Aligned Fisher Face in 50-dim space with accuracy of % .3f' % test_acc)
+    plt.savefig('fig/Fig3_2b')
+
+    plt.title('Fisher linear projection on 2D-feature space')
+    plt.xlabel('Geometry - 0.745')
+    plt.ylabel('Appearance - 0.660')
+    plt.plot(pred_female_lms, pred_female_img, 'ro', label='female')
+    plt.plot(pred_male_lms, pred_male_img, 'bo', label='male')
+    plt.axhline(y=0, color='black', linestyle='-')
+    plt.axvline(x=0, color='black', linestyle='-')
+    plt.savefig('fig/Fig3_2c')
