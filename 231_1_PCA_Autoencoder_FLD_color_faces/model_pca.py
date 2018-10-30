@@ -59,7 +59,7 @@ class face_PCA(object):
         if plot:
             eigenvectors = pca.components_
             eigen_lms = np.reshape(eigenvectors, [num_plot, self.num_landmark, 2]) + train_lms.mean(axis=0)
-            fig = plot_lms(eigen_lms, 1, num_plot, 'Eigen Landmarks')
+            fig = plot_lms(eigen_lms, 2, num_plot/2, 'Eigen Landmarks')
         return pca, fig 
         
     def reconstruction_img(self, samples, train_img, pca=None):
