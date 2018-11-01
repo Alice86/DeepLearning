@@ -180,7 +180,7 @@ class AE(object):
         self.optim_lms = tf.train.AdamOptimizer(learning_rate).minimize(self.lms_loss)
 
         '''Load data'''
-        landmarks = np.load("/content/drive/My Drive/landmarks.npy")
+        landmarks = np.load("landmarks.npy")
         # normalize
         landmarks = landmarks/128
         print('Landmark shape: {}'.format(np.shape(landmarks)))
@@ -247,12 +247,12 @@ class AE(object):
 
         '''Load data'''
         
-        if os.path.isfile("/content/drive/My Drive/image_warp.npy"):
-            image_warp = np.load("/content/drive/My Drive/image_warp.npy")
+        if os.path.isfile("image_warp.npy"):
+            image_warp = np.load("image_warp.npy")
         else:
-            images = np.load('/content/drive/My Drive/images.npy')/255    
+            images = np.load('/images.npy')/255    
             image_warp = np.array(list(map(warp, images, landmarks, [self.mean_lms*128]*landmarks.shape[0])))
-            np.save("/content/drive/My Drive/image_warp.npy", image_warp)
+            np.save("image_warp.npy", image_warp)
         
         print('Image shape: {}'.format(np.shape(image_warp)))
 
