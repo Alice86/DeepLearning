@@ -279,7 +279,9 @@ if __name__ == '__main__':
     plt.savefig('fig/Fig3_1')
 
     # FLD 2. two features
-    warp_pca,_ = face_pca.pca_face(warpimage[train_idx], None, False)
+    pca_lms, _ = face_pca.pca_landmark(train_lms, None, False)
+    latent_female_lms = pca_lms.transform(landmarks[train_female].reshape((-1,136)))
+    latent_male_lms = pca_lms.transform(landmarks[train_male].reshape((-1,136)))
     mean_female_lms = latent_female_lms.mean(axis=0)
     mean_male_lms = latent_male_lms.mean(axis=0)
     scatter_female_lms = np.dot((latent_female_lms-mean_female_lms).T, (latent_female_lms-mean_female_lms))
@@ -292,13 +294,28 @@ if __name__ == '__main__':
     test_acc = ((pred_female_lms>0).sum()+(pred_male_lms<0).sum())/200
     print('landmark accuracy: % .3f' %test_acc)
     
+    x = 0
+    while True:
+    l, r = x-0.001, x+0.001
+    xa = ((pred_female_lms>=x).sum()+(pred_male_lms<x).sum())/200
+    la = ((pred_female_lms>=l).sum()+(pred_male_lms<l).sum())/200
+    ra = ((pred_female_lms>=r).sum()+(pred_male_lms<r).sum())/200
+    if xa >= la and xa >= ra:
+        print(x, xa)
+        break
+    elif xa < la:
+        x -= 0.001
+    elif xa < ra:
+        x += 0.001
+    w0, acc = x, xa
+
     fisher_vector = pca_lms.inverse_transform(w_lms.T)
     fisher_lms = fisher_vector.reshape(68,2)
     plt.axis('off')
     plt.xticks([])
     plt.yticks([])
     plt.plot(fisher_lms[:,0], -fisher_lms[:,1], '.')
-    plt.title('Fisher landmark in 10-dim space with accuracy of % .3f' % test_acc)
+    plt.title('Fisher landmark in 10-dim space with accuracy of % .3f' % acc)
     plt.savefig('fig/Fig3_2a')
 
     warp_pca,_ = face_pca.pca_face(warpimage[train_idx], None, False)
@@ -320,6 +337,21 @@ if __name__ == '__main__':
     test_acc = ((pred_female_img>0).sum()+(pred_male_img<0).sum())/200
     print('aligned image accuracy: % .3f' %test_acc)
 
+    x = 0
+    while True:
+    l, r = x-0.001, x+0.001
+    xa = ((pred_female_img>=x).sum()+(pred_male_img<x).sum())/200
+    la = ((pred_female_img>=l).sum()+(pred_male_img<l).sum())/200
+    ra = ((pred_female_img>=r).sum()+(pred_male_img<r).sum())/200
+    if xa >= la and xa >= ra:
+        print(x, xa)
+        break
+    elif xa < la:
+        x -= 0.001
+    elif xa < ra:
+        x += 0.001
+    w0_, acc = x, xa
+
     fisher_vector = pca_img.inverse_transform(w_img.T)
     fisher_face = fisher_vector
     plt.axis('off')
@@ -329,7 +361,7 @@ if __name__ == '__main__':
     fmax=fisher_face.max()
     image=((fisher_face-fmin)/(fmax-fmin+1e-8)).reshape(128,128)
     plt.imshow(image.reshape(128,128), cmap ='gray')
-    plt.title('Aligned Fisher Face in 50-dim space with accuracy of % .3f' % test_acc)
+    plt.title('Aligned Fisher Face in 50-dim space with accuracy of % .3f' % acc)
     plt.savefig('fig/Fig3_2b')
 
     plt.title('Fisher linear projection on 2D-feature space')
