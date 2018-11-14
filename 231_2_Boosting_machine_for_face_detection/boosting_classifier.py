@@ -10,7 +10,7 @@ from im_process import image2patches, nms, normalize
 
 
 class Boosting_Classifier:
-	def __init__(self, haar_filters, data, labels, num_chosen_wc, num_bins, visualizer, num_cores, style='Ada'):
+	def __init__(self, haar_filters, data, labels, num_chosen_wc, num_bins, visualizer, num_cores, style='Ada', cont=False):
 		self.filters = haar_filters
 		self.data = data
 		self.labels = labels
@@ -20,16 +20,19 @@ class Boosting_Classifier:
 		self.num_cores = num_cores
 		self.style = style
 		self.chosen_wcs = None
+		self.cont = cont
 		if style == 'Ada':
 			self.weak_classifiers = [Ada_Weak_Classifier(i, filt[0], filt[1], self.num_bins)\
 									 for i, filt in enumerate(self.filters)]
 		elif style == 'Real':
+			# self.weak_classifiers = [Real_Weak_Classifier(i, filt[0], filt[1], self.num_bins) for i, filt in enumerate(self.filters)]
+			
+			# Build on ada	
 			self.load_trained_wcs('Ada_chosen_wcs.pkl')
 			self.visualizer.strong_classifier_scores, self.visualizer.weak_classifier_accuracies = {}, {}
 			_, wcs = zip(*self.chosen_wcs)
 			self.weak_classifiers = [Real_Weak_Classifier(wc.id, wc.plus_rects, wc.minus_rects, self.num_bins) for wc in wcs]
-			#[Real_Weak_Classifier(i, filt[0], filt[1], self.num_bins) for i, filt in enumerate(self.filters)]
-	
+ 
 	def calculate_training_activations(self, save_dir = None, load_dir = None):
 		print('Calcuate activations for %d weak classifiers, using %d imags.' % (len(self.weak_classifiers), self.data.shape[0]))
 		if load_dir is not None and os.path.exists(load_dir):
@@ -59,25 +62,27 @@ class Boosting_Classifier:
 	#self.chosen_wcs should be assigned a value after self.train() finishes
 	#call Weak_Classifier.calc_error() in this function
 	#cache training results to self.visualizer for visualization
-	def train(self, save_dir = None, continuing=False):
+	def train(self, save_dir = None):
 		######################
-		n = self.labels.shape[0]
-		strong_score = np.zeros((n))
-		# init
-		self.chosen_wcs = []
-		weights = np.ones((n))/n
-
 		if os.path.exists(save_dir):
 			self.load_trained_wcs(save_dir)
 			print('Trained model loaded')
-			if not continuing:
+			if not self.cont:
 				return			
 
+		n = self.labels.shape[0]
+		strong_score = np.zeros((n))
+		
+		# init
+		self.chosen_wcs = []
+		weights = np.ones((n))/n
+		
 		i = -1
-		if continuing:
+		if self.cont:
 			if os.path.exists('new_chosen_wcs.pkl'):
 				self.load_trained_wcs('new_chosen_wcs.pkl')
 				return
+
 			pre_chosen = self.chosen_wcs.copy()
 			self.chosen_wcs = []
 			self.visualizer.strong_classifier_scores = {}
@@ -87,6 +92,7 @@ class Boosting_Classifier:
 				eps = wc.calc_error(weights, self.labels)
 				alpha = 0.5*np.log((1-eps)/eps)
 				self.chosen_wcs += [[alpha, wc]]
+				
 				wc_pred = wc.polarity * np.sign(wc.activations-wc.threshold)
 				score = alpha * wc_pred
 
@@ -105,7 +111,8 @@ class Boosting_Classifier:
 					wc_epss = [wc.calc_error(weights, self.labels) for wc in self.weak_classifiers]
 				else:
 					wc_epss = Parallel(n_jobs = self.num_cores)(delayed(wc.calc_error)(weights, self.labels) for wc in self.weak_classifiers)
-					
+				
+				# weak classifiers
 				if epoch in self.visualizer.top_wc_intervals:
 					sort_eps = np.array(wc_epss)[np.argsort(wc_epss)]
 					accs = 1-sort_eps[:1000]
@@ -149,7 +156,7 @@ class Boosting_Classifier:
 			if epoch % 2 == 0:
 				print('Training epoch %d completed with eps %3f acc %.3f' % (epoch, eps, acc) )				
 
-		if continuing:
+		if self.cont:
 			save = (self.chosen_wcs, self.visualizer.strong_classifier_scores, self.visualizer.weak_classifier_accuracies)
 			pickle.dump(save, open('new_chosen_wcs.pkl', 'wb'))
 			return 
@@ -168,7 +175,7 @@ class Boosting_Classifier:
 	def load_trained_wcs(self, save_dir):
 		self.chosen_wcs, self.visualizer.strong_classifier_scores, self.visualizer.weak_classifier_accuracies = pickle.load(open(save_dir, 'rb'))	
 
-	def face_detection(self, img, name, scale_step = 10, neg=False):
+	def face_detection(self, img, name, scale_step = 20, neg=False):
 		
 		# this training accuracy should be the same as your training process,
 		##################################################################################
@@ -198,8 +205,8 @@ class Boosting_Classifier:
 		else: 
 			print('Face Detection in Progress ..., total %d patches' % patches.shape[0])
 			predicts = [self.sc_function(patch) for patch in tqdm(patches)]
-			print(np.mean(np.array(predicts) > 0), np.sum(np.array(predicts) > 0))
-			pos_predicts_xyxy = np.array([patch_xyxy[idx] + [score] for idx, score in enumerate(predicts) if score > 0])
+			# print(np.mean(np.array(predicts) > 0), np.sum(np.array(predicts) > 0))
+			pos_predicts_xyxy = np.array([list(patch_xyxy[idx]) + [score] for idx, score in enumerate(predicts) if score > 0])
 			np.save('detected_%s.npy' %name, predicts)
 			np.save('detected_patches_%s.npy' %name, pos_predicts_xyxy)
 			print('Detection saved')		
@@ -254,6 +261,8 @@ class Boosting_Classifier:
 		self.visualizer.filters = self.chosen_wcs
 		self.visualizer.labels = self.labels
 		self.visualizer.path = self.style
+		if self.cont:
+			self.visualizer.path = 'Cont'
 		
 		self.visualizer.draw_histograms()
 		self.visualizer.draw_rocs()

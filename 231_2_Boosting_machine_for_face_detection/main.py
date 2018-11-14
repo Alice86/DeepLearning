@@ -3,7 +3,7 @@ import time
 import cv2
 from boosting_classifier import Boosting_Classifier
 from visualizer import Visualizer
-from im_process import normalize
+from im_process import *
 from utils import *
 
 def main():
@@ -48,6 +48,8 @@ def main():
 
 	boost.visualize()
 	print("Visualization completed")
+	
+	# Detection
 	# for i in range(2):
 	# 	name = 'Face_%d' %(i+1)
 	# 	original_img = cv2.imread('./Testing_Images/%s.jpg' %name)
@@ -91,13 +93,16 @@ def main():
 	# 	np.save('cat_wc_activations.npy', np.concatenate((ac_pre, ac_new),1))
 
 	# run from previous
-	# boost_new = Boosting_Classifier(filters, new_data, new_labels, training_epochs, num_bins, drawer, num_cores, boosting_type)
-	# boost_new.calculate_training_activations('cat_wc_activations.npy', 'cat_wc_activations.npy')
-	# boost_new.train(chosen_wc_cache_dir, continuing=True)
+	drawer = Visualizer([10, 20, 50, 100, 150, 200], [1, 10, 20, 50, 100, 150, 200])
+	cont = True
+	boost_new = Boosting_Classifier(filters, new_data, new_labels, training_epochs, num_bins, drawer, num_cores, boosting_type, cont)
+	boost_new.calculate_training_activations('cat_wc_activations.npy', 'cat_wc_activations.npy')
+	boost_new.train(chosen_wc_cache_dir)
 	
-	# boost_new.visualize()
-	# print("Visualization completed")
+	boost_new.visualize()
+	print("Visualization completed")
 
+	# Detection
 	# for i in range(2):
 	# 	name = 'Face_%d' %(i+1)
 	# 	original_img = cv2.imread('./Testing_Images/%s.jpg' %name)
@@ -114,22 +119,37 @@ def main():
 
 	realboost = Boosting_Classifier(filters, data, labels, training_epochs, num_bins, drawer, num_cores, boosting_type)
 
-	start = time.clock()
+	# start = time.clock()
 	realboost.calculate_training_activations(act_cache_dir, act_cache_dir)
-	end = time.clock()
-	print('%f seconds for activation calculation' % (end - start))
+	# end = time.clock()
+	# print('%f seconds for activation calculation' % (end - start))
 
 	realboost.train(chosen_wc_cache_dir)
 
 	realboost.visualize()
 	print("Visualization completed")
 
+	# Detection
 	for i in range(1):
 		name = 'real_Face_%d' %(i+1)
 		nm = 'Face_%d' %(i+1)
-		original_img = cv2.imread('./Testing_Images/%s.jpg' %nm)
-		result_img = realboost.face_detection(img=original_img, name=name)
-		cv2.imwrite('%s/Result_img_%s.png' % (boosting_type, nm), result_img)
+		img = cv2.imread('./Testing_Images/%s.jpg' % nm)
+		predicts = np.load('detected_%s.npy' %name)
+		patch_xyxy = np.load('patch_position_%s.npy' %name)
+		pos_predicts_xyxy = np.array([list(patch_xyxy[idx]) + [score] for idx, score in enumerate(predicts) if score > 0])
+		xyxy_after_nms = nms(pos_predicts_xyxy, 0.01)
+		count = 0
+		for idx in range(xyxy_after_nms.shape[0]):
+			pred = xyxy_after_nms[idx, :]
+			if pred[4]>0:
+				cv2.rectangle(img, (int(pred[0]), int(pred[1])), (int(pred[2]), int(pred[3])), (0, 255, 0), 1)
+				count += 1
+		cv2.imwrite('neg_Result_img_%s.png'%name, img)
+		print(count)
+
+		# original_img = cv2.imread('./Testing_Images/%s.jpg' %nm)
+		# result_img = realboost.face_detection(img=original_img, name=name)
+		# cv2.imwrite('%s/Result_img_%s.png' % (boosting_type, nm), result_img)
 
 if __name__ == '__main__':
 	main()
